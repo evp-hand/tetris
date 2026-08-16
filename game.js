@@ -665,6 +665,7 @@ class TetrisBoard {
 
 let gameMode = 'lobby'; // 'lobby', 'single', 'vs'
 let gameSpeedMultiplier = 1.0;
+let isPaused = false;
 
 let playerBoard = null;
 let cpuBoard = null;
@@ -772,7 +773,7 @@ function showResultModal(type) {
 }
 
 function mainLoop(timestamp) {
-  if (gameMode === 'lobby' || gameMode === 'result') return;
+  if (gameMode === 'lobby' || gameMode === 'result' || isPaused) return;
 
   const dropInterval = 1000 / gameSpeedMultiplier;
 
@@ -861,9 +862,72 @@ function playSoundSynthSafe(type) {
   } catch(e){}
 }
 
+// Pause state management
+function togglePause() {
+  if (gameMode === 'lobby' || gameMode === 'result') return;
+  isPaused = !isPaused;
+
+  const btn = document.getElementById('btn-pause');
+  if (isPaused) {
+    btn.innerText = '▶️ 계속하기';
+    btn.style.background = 'rgba(57, 255, 20, 0.15)';
+    btn.style.borderColor = 'var(--neon-green)';
+    btn.style.boxShadow = '0 0 10px rgba(57, 255, 20, 0.2)';
+    
+    // Draw PAUSED text over the player's board canvas
+    if (playerBoard) {
+      const ctx = playerBoard.ctx;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(0, 0, playerBoard.canvas.width, playerBoard.canvas.height);
+      ctx.font = '900 22px Outfit';
+      ctx.fillStyle = 'var(--neon-cyan)';
+      ctx.textAlign = 'center';
+      ctx.fillText('PAUSED', playerBoard.canvas.width / 2, playerBoard.canvas.height / 2 - 10);
+      ctx.font = '700 12px Noto Sans KR';
+      ctx.fillStyle = '#fff';
+      ctx.fillText('일시정지 중', playerBoard.canvas.width / 2, playerBoard.canvas.height / 2 + 15);
+    }
+    
+    if (gameMode === 'vs' && cpuBoard) {
+      const ctx = cpuBoard.ctx;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(0, 0, cpuBoard.canvas.width, cpuBoard.canvas.height);
+      ctx.font = '900 22px Outfit';
+      ctx.fillStyle = 'var(--neon-magenta)';
+      ctx.textAlign = 'center';
+      ctx.fillText('PAUSED', cpuBoard.canvas.width / 2, cpuBoard.canvas.height / 2 - 10);
+    }
+  } else {
+    btn.innerText = '⏸️ 일시정지';
+    btn.style.background = 'rgba(0, 240, 255, 0.1)';
+    btn.style.borderColor = 'var(--neon-cyan)';
+    btn.style.boxShadow = 'none';
+    
+    // Resume request animation loops immediately
+    playerLastDropTime = performance.now();
+    if (gameMode === 'vs') {
+      cpuLastDropTime = performance.now();
+      cpuLastAiStepTime = performance.now();
+    }
+    requestAnimationFrame(mainLoop);
+  }
+}
+
+function resetPauseState() {
+  isPaused = false;
+  const btn = document.getElementById('btn-pause');
+  if (btn) {
+    btn.innerText = '⏸️ 일시정지';
+    btn.style.background = 'rgba(0, 240, 255, 0.1)';
+    btn.style.borderColor = 'var(--neon-cyan)';
+    btn.style.boxShadow = 'none';
+  }
+}
+
 // Start Modes Trigger
 function startSingleMode() {
   SoundSynth.init();
+  resetPauseState();
   gameMode = 'single';
 
   // Load stage from localstorage
@@ -890,6 +954,7 @@ function startSingleMode() {
 
 function startVsMode() {
   SoundSynth.init();
+  resetPauseState();
   gameMode = 'vs';
 
   // Read speed multiplier from slider value
@@ -921,6 +986,7 @@ function startVsMode() {
 }
 
 function exitToLobby() {
+  resetPauseState();
   gameMode = 'lobby';
   document.getElementById('lobby-view').style.display = 'flex';
   document.getElementById('game-view').style.display = 'none';
@@ -930,10 +996,19 @@ function exitToLobby() {
 function setupKeyboardControls() {
   window.addEventListener('keydown', e => {
     if (gameMode === 'lobby') return;
-    if (!playerBoard || playerBoard.gameOver) return;
 
     const key = e.key.toLowerCase();
     const code = e.code;
+
+    // Toggle pause with P key or Escape
+    if (key === 'p' || key === 'ㅔ' || code === 'KeyP' || key === 'escape') {
+      togglePause();
+      e.preventDefault();
+      return;
+    }
+
+    if (isPaused) return;
+    if (!playerBoard || playerBoard.gameOver) return;
 
     if (key === 'arrowleft' || key === 'a' || key === 'ㅁ' || code === 'KeyA') {
       playerBoard.move(-1, 0);
@@ -957,31 +1032,40 @@ function setupKeyboardControls() {
 // Mobile 가상 패드 바인딩
 function setupMobileControls() {
   document.getElementById('btn-left').addEventListener('touchstart', e => {
+    if (isPaused) return;
     playerBoard.move(-1, 0);
     SoundSynth.play('move');
     e.preventDefault();
   });
   document.getElementById('btn-right').addEventListener('touchstart', e => {
+    if (isPaused) return;
     playerBoard.move(1, 0);
     SoundSynth.play('move');
     e.preventDefault();
   });
   document.getElementById('btn-down').addEventListener('touchstart', e => {
+    if (isPaused) return;
     playerBoard.move(0, 1);
     e.preventDefault();
   });
   document.getElementById('btn-rotate').addEventListener('touchstart', e => {
+    if (isPaused) return;
     playerBoard.rotate();
     e.preventDefault();
   });
   document.getElementById('btn-hard').addEventListener('touchstart', e => {
+    if (isPaused) return;
     playerBoard.hardDrop();
     e.preventDefault();
   });
   document.getElementById('btn-hold').addEventListener('touchstart', e => {
+    if (isPaused) return;
     playerBoard.hold();
     e.preventDefault();
   });
+
+  // Pause button
+  document.getElementById('btn-pause').onclick = togglePause;
 
   // Slider change event display
   const slider = document.getElementById('speed-slider');
