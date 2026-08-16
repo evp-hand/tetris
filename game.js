@@ -3,7 +3,7 @@
 // Board parameters
 const COLS = 10;
 const ROWS = 20;
-const CELL_SIZE = 24; // pixels per cell
+const CELL_SIZE = 21.6; // pixels per cell
 
 // Audio synthesizer
 const SoundSynth = {
@@ -149,6 +149,18 @@ class TetrisBoard {
     this.nextCanvas = nextCanvasId ? document.getElementById(nextCanvasId) : null;
     this.isCpu = isCpu;
 
+    // Resize canvases to scale to 90%
+    this.canvas.width = COLS * CELL_SIZE;
+    this.canvas.height = ROWS * CELL_SIZE;
+    if (this.holdCanvas) {
+      this.holdCanvas.width = 72;
+      this.holdCanvas.height = 72;
+    }
+    if (this.nextCanvas) {
+      this.nextCanvas.width = 72;
+      this.nextCanvas.height = 72;
+    }
+
     this.grid = Array(ROWS).fill().map(() => Array(COLS).fill(0));
     this.bag = new PieceBag();
     
@@ -266,16 +278,26 @@ class TetrisBoard {
   hold() {
     if (this.gameOver || !this.canHold) return;
 
-    const oldHold = this.holdPieceType;
-    this.holdPieceType = this.currentPiece.type;
+    const currentType = this.currentPiece.type;
 
-    if (oldHold) {
-      this.nextPieceType = oldHold;
+    if (this.holdPieceType === null) {
+      this.holdPieceType = currentType;
+      this.spawnPiece();
     } else {
-      this.nextPieceType = this.bag.next();
+      const temp = this.holdPieceType;
+      this.holdPieceType = currentType;
+      
+      this.currentPiece = {
+        type: temp,
+        matrix: SHAPES[temp].map(row => [...row]),
+        x: Math.floor((COLS - SHAPES[temp][0].length) / 2),
+        y: temp === 'I' ? -1 : 0
+      };
+      
+      // Update preview canvases since hold has swapped
+      this.drawPreviews();
     }
 
-    this.spawnPiece();
     this.canHold = false;
     if (!this.isCpu) SoundSynth.play('rotate');
     this.drawPreviews();
@@ -449,15 +471,15 @@ class TetrisBoard {
     // 1. Next Preview
     if (this.nextCanvas) {
       const ctx = this.nextCanvas.getContext('2d');
-      ctx.clearRect(0,0,80,80);
+      ctx.clearRect(0, 0, 72, 72);
       if (this.nextPieceType) {
         const mat = SHAPES[this.nextPieceType];
         ctx.fillStyle = COLORS[this.nextPieceType];
-        const offset = this.nextPieceType === 'O' ? 24 : 16;
+        const offset = this.nextPieceType === 'O' ? 22 : 14;
         for (let r = 0; r < mat.length; r++) {
           for (let c = 0; c < mat[r].length; c++) {
             if (mat[r][c] !== 0) {
-              ctx.fillRect(c * 16 + offset, r * 16 + 20, 14, 14);
+              ctx.fillRect(c * 14.4 + offset, r * 14.4 + 18, 12.6, 12.6);
             }
           }
         }
@@ -467,15 +489,15 @@ class TetrisBoard {
     // 2. Hold Preview
     if (this.holdCanvas) {
       const ctx = this.holdCanvas.getContext('2d');
-      ctx.clearRect(0,0,80,80);
+      ctx.clearRect(0, 0, 72, 72);
       if (this.holdPieceType) {
         const mat = SHAPES[this.holdPieceType];
         ctx.fillStyle = COLORS[this.holdPieceType];
-        const offset = this.holdPieceType === 'O' ? 24 : 16;
+        const offset = this.holdPieceType === 'O' ? 22 : 14;
         for (let r = 0; r < mat.length; r++) {
           for (let c = 0; c < mat[r].length; c++) {
             if (mat[r][c] !== 0) {
-              ctx.fillRect(c * 16 + offset, r * 16 + 20, 14, 14);
+              ctx.fillRect(c * 14.4 + offset, r * 14.4 + 18, 12.6, 12.6);
             }
           }
         }
@@ -910,20 +932,23 @@ function setupKeyboardControls() {
     if (gameMode === 'lobby') return;
     if (!playerBoard || playerBoard.gameOver) return;
 
-    if (e.key === 'ArrowLeft' || e.key === 'a') {
+    const key = e.key.toLowerCase();
+    const code = e.code;
+
+    if (key === 'arrowleft' || key === 'a' || key === 'ㅁ' || code === 'KeyA') {
       playerBoard.move(-1, 0);
       SoundSynth.play('move');
-    } else if (e.key === 'ArrowRight' || e.key === 'd') {
+    } else if (key === 'arrowright' || key === 'd' || key === 'ㅇ' || code === 'KeyD') {
       playerBoard.move(1, 0);
       SoundSynth.play('move');
-    } else if (e.key === 'ArrowDown' || e.key === 's') {
+    } else if (key === 'arrowdown' || key === 's' || key === 'ㄴ' || code === 'KeyS') {
       playerBoard.move(0, 1);
-    } else if (e.key === 'ArrowUp' || e.key === 'w') {
+    } else if (key === 'arrowup' || key === 'w' || key === 'ㅈ' || code === 'KeyW') {
       playerBoard.rotate();
-    } else if (e.key === ' ') {
+    } else if (key === ' ' || code === 'Space') {
       playerBoard.hardDrop();
       e.preventDefault(); // prevent page space scroll
-    } else if (e.key === 'Shift' || e.key === 'c') {
+    } else if (key === 'shift' || key === 'c' || key === 'ㅊ' || code === 'KeyC' || code === 'ShiftLeft' || code === 'ShiftRight') {
       playerBoard.hold();
     }
   });
