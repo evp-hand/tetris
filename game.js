@@ -880,7 +880,7 @@ function togglePause() {
       ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
       ctx.fillRect(0, 0, playerBoard.canvas.width, playerBoard.canvas.height);
       ctx.font = '900 22px Outfit';
-      ctx.fillStyle = 'var(--neon-cyan)';
+      ctx.fillStyle = '#00f0ff';
       ctx.textAlign = 'center';
       ctx.fillText('PAUSED', playerBoard.canvas.width / 2, playerBoard.canvas.height / 2 - 10);
       ctx.font = '700 12px Noto Sans KR';
@@ -893,7 +893,7 @@ function togglePause() {
       ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
       ctx.fillRect(0, 0, cpuBoard.canvas.width, cpuBoard.canvas.height);
       ctx.font = '900 22px Outfit';
-      ctx.fillStyle = 'var(--neon-magenta)';
+      ctx.fillStyle = '#ff007f';
       ctx.textAlign = 'center';
       ctx.fillText('PAUSED', cpuBoard.canvas.width / 2, cpuBoard.canvas.height / 2 - 10);
     }
@@ -1123,10 +1123,25 @@ window.onload = function() {
     if (e.touches.length > 1) e.preventDefault();
   }, { passive: false });
 
-  // PWA Service Worker Registration
+  // PWA Service Worker Registration & Automatic Update Reload
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js')
-      .then(reg => console.log('Tetris Service Worker Registered', reg.scope))
+      .then(reg => {
+        console.log('Tetris Service Worker Registered', reg.scope);
+        reg.onupdatefound = () => {
+          const installingWorker = reg.installing;
+          if (installingWorker) {
+            installingWorker.onstatechange = () => {
+              if (installingWorker.state === 'installed') {
+                if (navigator.serviceWorker.controller) {
+                  console.log('New content detected. Reloading page...');
+                  window.location.reload();
+                }
+              }
+            };
+          }
+        };
+      })
       .catch(err => console.error('Service Worker Registration Failed', err));
   }
 };
