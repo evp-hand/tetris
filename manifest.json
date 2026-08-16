@@ -1,0 +1,18 @@
+{
+  "name": "네온 테트리스 (Tetris PWA)",
+  "short_name": "테트리스",
+  "description": "1000 스테이지 싱글 모드 및 AI CPU와의 대결을 즐길 수 있는 2D 네온 테마 테트리스 PWA",
+  "start_url": "테트리스.html",
+  "display": "standalone",
+  "background_color": "#070710",
+  "theme_color": "#00f0ff",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "tetris_icon.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>네온 테트리스 (Tetris PWA) - 싱글 및 CPU 대결</title>
+  <meta name="description" content="1000 스테이지 싱글 모드 및 AI CPU와의 긴장감 넘치는 줄 전송 배틀을 제공하는 PWA 테트리스">
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body>
+
+  <!-- 1. Lobby View Screen -->
+  <div id="lobby-view" class="lobby-container">
+    <h1 class="lobby-title">🧱 NEON TETRIS</h1>
+    <p style="color: #a0aec0; font-size: 13px; text-align: center; margin-bottom: 12px; line-height: 1.5;">
+      싱글 스테이지를 돌파하거나<br>컴퓨터 AI와 치열한 쓰레기 줄 전송 배틀을 즐겨보세요!
+    </p>
+
+    <!-- Single Mode Play Trigger -->
+    <button id="btn-single" class="btn-retro">
+      <div style="text-align: left;">
+        <div style="font-weight: 900;">👤 싱글 모드 (1인)</div>
+        <div style="font-size: 10px; color: var(--neon-cyan); margin-top: 2px;">100줄 삭제 클리어 • 총 1000층</div>
+      </div>
+      <span style="font-size: 20px;">▶</span>
+    </button>
+
+    <!-- Vs Mode Play Trigger -->
+    <div style="width: 100%; display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
+      <button id="btn-vs" class="btn-retro vs-btn">
+        <div style="text-align: left;">
+          <div style="font-weight: 900;">🤖 대결 모드 (Vs CPU)</div>
+          <div style="font-size: 10px; color: var(--neon-magenta); margin-top: 2px;">실시간 AI 배틀 • 공격 전송 지원</div>
+        </div>
+        <span style="font-size: 20px;">⚔️</span>
+      </button>
+
+      <!-- Vs Mode Speed Selector -->
+      <div class="slider-container">
+        <div class="slider-label">
+          <span>컴퓨터 대결 속도 조절</span>
+          <span id="slider-val-display" style="font-weight: 900; color: var(--neon-magenta);">1.0x</span>
+        </div>
+        <input type="range" id="speed-slider" min="1.0" max="2.0" step="0.1" value="1.0">
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Gameplay Screen (Active Viewport) -->
+  <div id="game-view" class="game-screen">
+    <!-- Header Controls -->
+    <header class="game-header">
+      <h2 style="font-weight: 900; letter-spacing: 0.5px; font-size: 18px;">🧱 PLAYING</h2>
+      <button id="btn-exit" style="background: rgba(255,255,255,0.05); border: 1px solid var(--panel-border); border-radius: 8px; color: #fff; padding: 6px 12px; font-size: 12px; cursor: pointer; font-weight: 700;">🏠 로비로</button>
+    </header>
+
+    <!-- Play Grid Boards Layout -->
+    <div class="boards-layout">
+      
+      <!-- Side Previews Panel for Hold (Only player gets hold) -->
+      <div class="side-panel">
+        <div class="side-box">
+          <div class="side-box-title">HOLD</div>
+          <canvas id="hold-canvas" class="preview-canvas" width="80" height="80"></canvas>
+        </div>
+        
+        <!-- Score HUD indicators -->
+        <div id="single-hud" class="hud-panel">
+          <div class="hud-row">
+            <span>스테이지</span>
+            <span id="hud-stage" class="hud-val" style="color: var(--neon-cyan);">STAGE 1</span>
+          </div>
+          <div class="hud-row" style="margin-top: 4px;">
+            <span>제거한 줄</span>
+            <span id="hud-lines" class="hud-val">0 / 100</span>
+          </div>
+          <div class="hud-row" style="margin-top: 4px;">
+            <span>배속</span>
+            <span id="hud-speed" class="hud-val">1.0x</span>
+          </div>
+        </div>
+
+        <div id="vs-hud" class="hud-panel" style="display: none;">
+          <div class="hud-row">
+            <span>모드</span>
+            <span class="hud-val" style="color: var(--neon-magenta);">대결 모드</span>
+          </div>
+          <div class="hud-row" style="margin-top: 4px;">
+            <span>속도</span>
+            <span id="vs-speed-hud" class="hud-val">1.0x</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Player Board Wrapper -->
+      <div class="board-container">
+        <div class="board-label player">Player (YOU)</div>
+        <div class="grid-wrapper player-border">
+          <canvas id="player-canvas" class="board-canvas" width="240" height="480"></canvas>
+        </div>
+      </div>
+
+      <!-- CPU Board Wrapper (vs only) -->
+      <div class="board-container vs-only">
+        <div class="board-label cpu">CPU (ANDROID)</div>
+        <div class="grid-wrapper cpu-border">
+          <canvas id="cpu-canvas" class="board-canvas" width="240" height="480"></canvas>
+        </div>
+      </div>
+
+      <!-- Side Previews Panel for Next (Player only) -->
+      <div class="side-panel">
+        <div class="side-box">
+          <div class="side-box-title">NEXT</div>
+          <canvas id="next-canvas" class="preview-canvas" width="80" height="80"></canvas>
+        </div>
+        <div class="hud-panel" style="text-align: center; font-size: 9px; color: #a0aec0; padding: 8px;">
+          <span>PC 조작:</span>
+          <div style="margin-top: 4px; display: flex; flex-direction: column; gap: 2px;">
+            <span>방향키 / WASD</span>
+            <span>스페이스 (하드드롭)</span>
+            <span>Shift / C (홀드)</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Mobile Virtual Control Gamepad -->
+    <div class="virtual-gamepad">
+      <!-- DPAD controls -->
+      <div class="dpad-area">
+        <button id="btn-hold" class="gamepad-btn">HOLD</button>
+        <button id="btn-rotate" class="gamepad-btn btn-rotate">↑</button>
+        <div class="gamepad-btn" style="opacity: 0.2; pointer-events: none;"></div>
+        
+        <button id="btn-left" class="gamepad-btn">←</button>
+        <button id="btn-down" class="gamepad-btn">↓</button>
+        <button id="btn-right" class="gamepad-btn">→</button>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="action-area">
+        <button id="btn-hard" class="gamepad-btn btn-hard">⚡ HARD DROP</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Game Results Modal -->
+  <div id="result-modal" class="modal-overlay">
+    <div class="modal-content">
+      <h2 id="result-header" class="modal-header">🎉 STAGE CLEAR!</h2>
+      <div id="result-icon" style="font-size: 48px; margin: 8px 0;">🏆</div>
+      <div>
+        <p id="result-message" style="font-size: 16px; font-weight: 700; color: #fff;">100줄을 모두 지워 스테이지를 클리어했습니다!</p>
+        <p id="result-detail" style="color: var(--neon-cyan); font-size: 12px; margin-top: 4px; font-weight: 800;"></p>
+      </div>
+      <button id="btn-result-action" class="modal-btn modal-btn-primary">다음 스테이지 ▶</button>
+      <button class="modal-btn" onclick="document.getElementById('result-modal').classList.remove('active'); exitToLobby();">로비로 이동</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
