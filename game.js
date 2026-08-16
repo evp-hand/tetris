@@ -1064,8 +1064,23 @@ function setupMobileControls() {
     e.preventDefault();
   });
 
-  // Pause button
-  document.getElementById('btn-pause').onclick = togglePause;
+  // Pause button (bulletproof touch + click binding for Android/iOS)
+  const pauseBtn = document.getElementById('btn-pause');
+  if (pauseBtn) {
+    let lastPauseTriggerTime = 0;
+    const handlePausePress = (e) => {
+      const now = performance.now();
+      if (now - lastPauseTriggerTime < 350) {
+        e.preventDefault();
+        return;
+      }
+      lastPauseTriggerTime = now;
+      e.preventDefault();
+      togglePause();
+    };
+    pauseBtn.addEventListener('touchstart', handlePausePress, { passive: false });
+    pauseBtn.addEventListener('click', handlePausePress);
+  }
 
   // Slider change event display
   const slider = document.getElementById('speed-slider');
@@ -1080,9 +1095,28 @@ window.onload = function() {
   setupKeyboardControls();
   setupMobileControls();
 
-  document.getElementById('btn-single').onclick = startSingleMode;
-  document.getElementById('btn-vs').onclick = startVsMode;
-  document.getElementById('btn-exit').onclick = exitToLobby;
+  const bindTouchAndClick = (id, handler) => {
+    const el = document.getElementById(id);
+    if (el) {
+      let lastPress = 0;
+      const pressHandler = (e) => {
+        const now = performance.now();
+        if (now - lastPress < 350) {
+          e.preventDefault();
+          return;
+        }
+        lastPress = now;
+        e.preventDefault();
+        handler();
+      };
+      el.addEventListener('touchstart', pressHandler, { passive: false });
+      el.addEventListener('click', pressHandler);
+    }
+  };
+
+  bindTouchAndClick('btn-single', startSingleMode);
+  bindTouchAndClick('btn-vs', startVsMode);
+  bindTouchAndClick('btn-exit', exitToLobby);
 
   // Prevent double tap zooms
   document.addEventListener('touchstart', e => {
